@@ -1,11 +1,13 @@
 from dataclasses import dataclass, field
-from random import choice, randrange, sample, shuffle
+from random import choice, randrange, sample, shuffle, seed
 import math
 import itertools
 
 INTERESTS = ["sports", "going out", "drinking", "programming", "cooking", "building stuff", "gaming", "board games", "music", "culture", "raising kids", ]
 MAX_GROUP_SIZE = 6
-GEN_SIZE = 500
+POOL_COUNT = 10
+POOL_SIZE = 50
+STALL_GENERATIONS = 50
 
 
 person_count = itertools.count()
@@ -175,34 +177,60 @@ def generate_random_solution(people):
 
 
 def main():
+    seed(5)
     people = generate_fake_people(90)
-    generation = [generate_random_solution(people) for _ in range(GEN_SIZE)]
+    # Best seen fitness for this data set: 26250!
+    seed()
+    generation = [[generate_random_solution(people) for _ in range(POOL_SIZE)] for _ in range(POOL_COUNT)]
 
     gen_count = 0
+    last_progress = [0 for _ in range(POOL_COUNT)]
+    fitnesses = [0 for _ in range(POOL_COUNT)]
     while True:
-        results = []
-        for solution in generation:
-            fitness = calculate_fitness(solution)
-            results.append((-fitness, solution))
-        results.sort()
         gen_count += 1
+        pool_solutions = []
+        for pool_num, pool in enumerate(generation):
+            results = []
+            for solution in pool:
+                fitness = calculate_fitness(solution)
+                results.append((-fitness, solution))
+            results.sort()
 
-        solutions = [result for fitness, result in results[0:GEN_SIZE//3]]
-
-        print(f"Generation #{gen_count} fitness={-results[0][0]}")
-        if gen_count%100 == 0:
-            print_solution(results[0][1])
-
-        generation = [solutions[0]]
-        while len(generation) < GEN_SIZE:
-            mode = randrange(10) 
-            if mode < 0:
-                new_solution = generate_random_solution(people)
-            elif mode < 3:
-                new_solution = crossover_solutions(get_random_solution(solutions), get_random_solution(solutions))
+            best_fitness = -results[0][0]
+            if best_fitness > fitnesses[pool_num]:
+                fitnesses[pool_num] = best_fitness
+                last_progress[pool_num] = 0
             else:
-                new_solution = mutate_solution(get_random_solution(solutions))
-            generation.append(new_solution)
+                last_progress[pool_num] += 1
+            pool_solutions.append([result for fitness, result in results[0:POOL_SIZE//3]])
+
+        new_generation = []
+        for pool_num, solutions in enumerate(pool_solutions):
+            if pool_num == 0:
+                new_pool = [s[0] for s in pool_solutions]
+            elif last_progress[pool_num] >= STALL_GENERATIONS:
+                # new_pool = [generate_random_solution(people) for _ in range(POOL_SIZE)]
+                new_pool = [choice(pool_solutions)[0], solutions[0]]
+                last_progress[pool_num] = 0
+                fitnesses[pool_num] = 0
+            else:
+                new_pool = [solutions[0]]
+            while len(new_pool) < POOL_SIZE:
+                mode = randrange(10) 
+                if mode < 5:
+                    new_solution = crossover_solutions(get_random_solution(solutions), get_random_solution(solutions))
+                elif mode < 10:
+                    new_solution = mutate_solution(get_random_solution(solutions))
+                else:
+                    new_solution = get_random_solution(solutions)
+                new_pool.append(new_solution)
+
+            new_generation.append(new_pool)
+
+        print(f"Generation #{gen_count} fitness={fitnesses}")
+        if gen_count%100 == 0:
+            print_solution(pool_solutions[0][0])
+        generation = new_generation
 
 
 if __name__ == '__main__':
