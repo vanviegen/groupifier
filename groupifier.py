@@ -161,8 +161,8 @@ def generate_fake_people(count):
 
 
 def get_random_solution(solutions):
-    # index = min(randrange(len(solutions)), randrange(len(solutions)), randrange(len(solutions)))
-    index = randrange(len(solutions))
+    index = min(randrange(len(solutions)), randrange(len(solutions)))
+    # index = randrange(len(solutions))
     return solutions[index]
 
 
@@ -187,25 +187,9 @@ def main():
         results.sort()
         gen_count += 1
 
-        pairs_seen = set()
-        solutions = []
-        for fitness, result in results:
-            dup_count = 0
-            uniq_count = 0
-            for group in result:
-                for person_index1, person1 in enumerate(group):
-                    for person_index2 in range(person_index1+1, len(group)):
-                        person2 = group[person_index2]
-                        pair = (min(person1.id, person2.id), max(person1.id, person2.id),)
-                        if pair in pairs_seen:
-                            dup_count += 1
-                        else:
-                            pairs_seen.add(pair)
-                            uniq_count += 1
-            if uniq_count / (dup_count + uniq_count) > 0.05:
-                solutions.append(result)
+        solutions = [result for fitness, result in results[0:GEN_SIZE//3]]
 
-        print(f"Generation #{gen_count} fitness={-results[0][0]} interesting results={len(solutions)}")
+        print(f"Generation #{gen_count} fitness={-results[0][0]}")
         if gen_count%100 == 0:
             print_solution(results[0][1])
 
